@@ -1,8 +1,8 @@
-package stacklog
+package logging
 
 import "strings"
 
-// ErrorPattern translates low-level errors into user-friendly phrases.
+// ErrorPattern turns a wrapped error into a short, user-facing message.
 func ErrorPattern(err error) string {
 	if err == nil {
 		return ""
@@ -21,16 +21,16 @@ func ErrorPattern(err error) string {
 	return TranslateError(rawError)
 }
 
-// TranslateError maps DB/network/token patterns to clearer messages.
+// TranslateError maps raw DB/network strings into friendly messages.
 func TranslateError(rawErr string) string {
 	lowErr := strings.ToLower(rawErr)
 
 	switch {
 	case strings.Contains(lowErr, "unique constraint") || strings.Contains(lowErr, "duplicate key"):
-		if strings.Contains(lowErr, "email") {
+		if strings.Contains(lowErr, "users_email_key") {
 			return "This email is already registered. Please use another email."
 		}
-		if strings.Contains(lowErr, "phone") {
+		if strings.Contains(lowErr, "users_phone_key") {
 			return "This phone number is already in use."
 		}
 		return "The record already exists in our system."

@@ -1,11 +1,11 @@
-package stacklog
+package logging
 
 import (
 	"fmt"
 	"strings"
 )
 
-// CheckType builds a short detail string for variadic values.
+// CheckType formats variadic values into a compact "[...]" suffix for logs.
 func CheckType(datas ...any) string {
 	if len(datas) == 0 {
 		return ""
@@ -15,7 +15,7 @@ func CheckType(datas ...any) string {
 		switch v := data.(type) {
 		case string:
 			result = append(result, fmt.Sprintf("[%s]", v))
-		case int, int64, bool, float64, float32, uint, uint64:
+		case int, int64, bool:
 			result = append(result, fmt.Sprintf("[%v]", v))
 		default:
 			if v == nil {

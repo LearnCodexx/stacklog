@@ -1,8 +1,9 @@
-package stacklog
+package logging
 
 import (
 	"context"
 	"fmt"
+	"learncodexx/point_of_sale/user_service/constants"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -12,11 +13,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// APIPrint renders logs with request/file context and optional Fiber grouping.
 type APIPrint struct {
 	defaultService string
 	fixedLength    int
 }
 
+// NewAPIPrint builds an API-aware logger that can group errors per request.
 func NewAPIPrint(defaultService string) *APIPrint {
 	return &APIPrint{
 		defaultService: defaultService,
@@ -24,7 +27,7 @@ func NewAPIPrint(defaultService string) *APIPrint {
 	}
 }
 
-// Info prints a colored, tagged info log. Pass context to override service tag via KeyAPIPrint.
+// Info logs a request-scoped info message with file:line and details.
 func (fl *APIPrint) Info(ctx context.Context, format string, a ...any) {
 	_, file, line, _ := runtime.Caller(2)
 	path := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
@@ -33,10 +36,10 @@ func (fl *APIPrint) Info(ctx context.Context, format string, a ...any) {
 	typeInfo := CheckType(a...)
 
 	finalMessage := fmt.Sprintf("%s %s%s", path, userMsg, typeInfo)
-	fl.printFromContext(ctx, LevelInfo, TagAPI, finalMessage)
+	fl.printFromContext(ctx, constants.LevelInfo, constants.TagAPI, finalMessage)
 }
 
-// Error prints a colored, grouped error log and keeps the stack trace tidy.
+// Error logs a request-scoped error, reformatting stack traces with color hints.
 func (fl *APIPrint) Error(ctx context.Context, format string, err error, a ...any) {
 	_, file, line, _ := runtime.Caller(2)
 	handlerPath := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
@@ -93,7 +96,7 @@ func (fl *APIPrint) Error(ctx context.Context, format string, err error, a ...an
 
 	finalCombinedMessage := header + " " + cleanStackTrace + typeInfo
 
-	fl.printFromContext(ctx, LevelError, TagAPI, finalCombinedMessage)
+	fl.printFromContext(ctx, constants.LevelError, constants.TagAPI, finalCombinedMessage)
 }
 
 func (fl *APIPrint) printFromContext(ctx context.Context, level, tag, fullMessage string) {
@@ -107,7 +110,7 @@ func (fl *APIPrint) printFromContext(ctx context.Context, level, tag, fullMessag
 	}
 
 	levelColor := level
-	if level == LevelError {
+	if level == "ERROR" {
 		levelColor = "\033[31m" + level + "\033[0m"
 
 		// Try to group with HTTP request if in request context
@@ -122,7 +125,7 @@ func (fl *APIPrint) printFromContext(ctx context.Context, level, tag, fullMessag
 
 	// Print standalone log
 	borderColor := "\033[33m" // Yellow for warnings/info
-	if level == LevelError {
+	if level == "ERROR" {
 		borderColor = "\033[31m" // Red border for errors
 	}
 
@@ -137,7 +140,7 @@ func (fl *APIPrint) printFromContext(ctx context.Context, level, tag, fullMessag
 }
 
 func (fl *APIPrint) calculateTagAndLength(tag, serviceName string) (string, string) {
-	if tag == TagAPI && serviceName != "" {
+	if tag == constants.TagAPI && serviceName != "" {
 		finalTag := concatTagService(tag, serviceName)
 		return finalTag, strconv.Itoa(len(finalTag))
 	}
@@ -145,7 +148,7 @@ func (fl *APIPrint) calculateTagAndLength(tag, serviceName string) (string, stri
 }
 
 func (fl *APIPrint) getServiceName(ctx context.Context) string {
-	if serviceName, ok := ctx.Value(KeyAPIPrint).(string); ok {
+	if serviceName, ok := ctx.Value(constants.KeyAPIPrint).(string); ok {
 		return serviceName
 	}
 	return fl.defaultService
@@ -157,3 +160,27 @@ func concatTagService(tag, service string) string {
 
 // AddErrorToRequestFromMiddleware references the middleware function to avoid circular imports
 var AddErrorToRequestFromMiddleware func(*fiber.Ctx, string)
+
+// SetFiberErrorHook wires Fiber middleware error logs into APIPrint grouping.
+func SetFiberErrorHook(fn func(*fiber.Ctx, string)) {
+	AddErrorToRequestFromMiddleware = fn
+}
+
+// Example:
+//	log := logging.NewAPIPrint("user-service")
+//	ctx, cancel := logging.WithTimeout(fiberCtx, 5*time.Second, "UserService")
+//	defer cancel()
+//	log.Error(ctx, "signup failed", logging.Trace(err))
+
+func getRootSource(errStr string) string {
+	lines := strings.Split(errStr, "↳")
+	if len(lines) > 1 {
+		lastLine := lines[len(lines)-1]
+		start := strings.Index(lastLine, "[")
+		end := strings.Index(lastLine, "]")
+		if start != -1 && end != -1 {
+			return lastLine[start : end+1]
+		}
+	}
+	return ""
+}

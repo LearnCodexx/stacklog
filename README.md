@@ -1,40 +1,35 @@
-# stacklog (extracted from point_of_sale user_service)
+# Logging package
 
-Small logging helper with two pieces:
+One import for all logging helpers used by this service.
 
-- `Trace(err error) error` — wraps errors with file:line, keeps nesting tidy, and skips runtime/internal frames.
-- `APIPrint` / `BasicPrint` — colored console loggers with optional Fiber request grouping via `AddErrorToRequestFromMiddleware` hook.
-
-## Install
-
-```sh
-go get github.com/learncodexx/stacklog@v0.1.0
+## Install / import
+```go
+import "learncodexx/point_of_sale/user_service/pkg/logging"
 ```
-
-(If you’re testing locally alongside `user_service`, add a replace in that module’s `go.mod`:
-`replace github.com/learncodexx/stacklog => ../logging`)
 
 ## Quick start
-
 ```go
-import (
-    "context"
-    "github.com/learncodexx/stacklog"
-)
+log := logging.NewAPIPrint("user-service")
+ctx := logging.SetServiceName(context.Background(), "user-service")
 
-var log = stacklog.NewAPIPrint("user-service")
-
-func handler(ctx context.Context) error {
-    if err := doWork(); err != nil {
-        return stacklog.Trace(err)
-    }
-    log.Info(ctx, "processed %d items", 5)
-    return nil
+if err := doWork(); err != nil {
+    return logging.Trace(err) // adds [file:line] stack hints
 }
+
+log.Info(ctx, "processed %d users", 5)
 ```
 
-## Notes
-- Prefer calling `Trace(err)` inline at the return site. This is the most precise and lowest‑overhead pattern (no defers needed).
-- If a lower layer already added a `[ file:line ]`, `Trace` skips adding another to avoid noise.
-- `APIPrint.Error` will attempt to group with an HTTP request if you set `stacklog.AddErrorToRequestFromMiddleware` in your Fiber middleware.
-- `ErrorPattern` and `TranslateError` are optional helpers to turn DB/network errors into user-friendly messages.
+## API surface
+- `Trace(err error) error` — wrap errors with caller file:line, skipping duplicates.
+- `SetError(msg string) error` — create a fresh error with caller file:line.
+- `APIPrint` — request-aware logger; groups errors with Fiber requests when `SetFiberErrorHook` is set.
+- `BasicPrint` — lightweight stdout logger for init/background code.
+- `CheckType(args ...any) string` — appends `[val]` hints to log lines.
+- `ErrorPattern(err) string` / `TranslateError(raw string)` — convert DB/infra errors to user-friendly text.
+- Context helpers: `WithTimeout`, `WithDefaultTimeout`, `BackgroundWithDefaultTimeout(Basic)`, `SetServiceName`.
+- `SetFiberErrorHook(fn)` — connect Fiber middleware to group error logs per request.
+
+## Patterns
+- Call `logging.Trace(err)` inline at the return site (no defers) for accurate stack lines.
+- Use `SetServiceName` or the `With*Timeout` helpers so APIPrint tags logs with the current service.
+- For new errors, prefer `SetError` over `fmt.Errorf` to keep format consistent.

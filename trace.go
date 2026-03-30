@@ -1,4 +1,4 @@
-package stacklog
+package logging
 
 import (
 	"fmt"
@@ -7,8 +7,14 @@ import (
 	"strings"
 )
 
-// Trace wraps an error with the caller file:line while preserving existing stack hints.
-// It is safe to call repeatedly; it skips duplicate frames and internal runtime/stacklog frames.
+// Trace wraps err with the caller file:line. Call it inline at the error site
+// (avoid defers) for precise, low-overhead logging.
+//
+// Example:
+//
+//	ctx, cancel := logging.WithTimeout(fiberCtx, 5*time.Second, "UserService")
+//	defer cancel()
+//	return logging.Trace(svc.Do(ctx))
 func Trace(err error) error {
 	if err == nil {
 		return nil
@@ -24,9 +30,8 @@ func Trace(err error) error {
 	for {
 		frame, more := frames.Next()
 
-		// Skip internal frames (runtime, stacklog) and deferred wrappers
 		if strings.Contains(frame.File, "runtime/") ||
-			strings.Contains(frame.File, "/stacklog/") ||
+			strings.Contains(frame.File, "/logging/") ||
 			strings.Contains(frame.Function, ".func") {
 			if !more {
 				break
@@ -34,7 +39,6 @@ func Trace(err error) error {
 			continue
 		}
 
-		// Use PC-1 to point at the actual call site instead of the return address
 		file := frame.File
 		line := frame.Line
 		if fn := runtime.FuncForPC(frame.PC); fn != nil {
@@ -45,7 +49,6 @@ func Trace(err error) error {
 
 		fileInfo := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
 
-		// Avoid duplicating the same frame when bubbling the error up
 		if strings.Contains(errStr, fileInfo) {
 			if !more {
 				break
@@ -66,9 +69,21 @@ func Trace(err error) error {
 }
 
 // SetError builds an error with the caller file:line and a custom message.
+// SetError builds an error with the caller file:line and a custom message.
 func SetError(message string) error {
 	_, file, line, _ := runtime.Caller(1)
 	fileInfo := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
 
 	return fmt.Errorf("\n  ↳ %s -> %s", fileInfo, message)
+}
+
+// GetFileName extracts the "[ file.go ]" portion from a formatted error string.
+func GetFileName(errStr string) string {
+	start := strings.Index(errStr, "[")
+	end := strings.Index(errStr, ".go")
+
+	if start == -1 || end == -1 || end < start {
+		return ""
+	}
+	return strings.TrimSpace(errStr[start+1 : end+3])
 }
