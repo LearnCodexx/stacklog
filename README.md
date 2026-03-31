@@ -43,6 +43,25 @@ if err := svc.SignIn(ctx, req); err != nil {
 api.Info(ctx, "signin success")
 ```
 
+## HTTP Middleware Usage
+
+```go
+import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/learncodexx/logging"
+)
+
+func main() {
+	app := fiber.New()
+
+	// Enable grouped request logging.
+	app.Use(logging.HTTPLogger())
+
+	// Let APIPrint errors join the current HTTP log group.
+	logging.SetFiberErrorHook(logging.AddErrorToRequest)
+}
+```
+
 ## Main functions
 
 - `Trace(err error) error`

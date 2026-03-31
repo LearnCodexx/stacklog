@@ -1,4 +1,4 @@
-package stacklog
+package logging
 
 const (
 	LevelInfo  = "INFO"
