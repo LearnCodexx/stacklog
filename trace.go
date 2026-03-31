@@ -7,14 +7,7 @@ import (
 	"strings"
 )
 
-// Trace wraps err with the caller file:line. Call it inline at the error site
-// (avoid defers) for precise, low-overhead logging.
-//
-// Example:
-//
-//	ctx, cancel := logging.WithTimeout(fiberCtx, 5*time.Second, "UserService")
-//	defer cancel()
-//	return logging.Trace(svc.Do(ctx))
+// Trace wraps err with caller file:line and preserves existing stack hints.
 func Trace(err error) error {
 	if err == nil {
 		return nil
@@ -22,7 +15,6 @@ func Trace(err error) error {
 
 	errStr := err.Error()
 
-	// 0: runtime.Callers, 1: Trace, 2: caller
 	pc := make([]uintptr, 15)
 	n := runtime.Callers(2, pc)
 	frames := runtime.CallersFrames(pc[:n])
@@ -68,8 +60,7 @@ func Trace(err error) error {
 	return err
 }
 
-// SetError builds an error with the caller file:line and a custom message.
-// SetError builds an error with the caller file:line and a custom message.
+// SetError builds a new error with caller file:line.
 func SetError(message string) error {
 	_, file, line, _ := runtime.Caller(1)
 	fileInfo := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
@@ -77,7 +68,7 @@ func SetError(message string) error {
 	return fmt.Errorf("\n  ↳ %s -> %s", fileInfo, message)
 }
 
-// GetFileName extracts the "[ file.go ]" portion from a formatted error string.
+// GetFileName extracts the file name token from a traced error string.
 func GetFileName(errStr string) string {
 	start := strings.Index(errStr, "[")
 	end := strings.Index(errStr, ".go")
@@ -85,5 +76,6 @@ func GetFileName(errStr string) string {
 	if start == -1 || end == -1 || end < start {
 		return ""
 	}
+
 	return strings.TrimSpace(errStr[start+1 : end+3])
 }

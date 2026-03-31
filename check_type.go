@@ -5,11 +5,12 @@ import (
 	"strings"
 )
 
-// CheckType formats variadic values into a compact "[...]" suffix for logs.
+// CheckType renders variadic values as short debug details in logs.
 func CheckType(datas ...any) string {
 	if len(datas) == 0 {
 		return ""
 	}
+
 	var result []string
 	for _, data := range datas {
 		switch v := data.(type) {
@@ -25,5 +26,6 @@ func CheckType(datas ...any) string {
 			}
 		}
 	}
+
 	return " | Details: " + strings.Join(result, " , ")
 }

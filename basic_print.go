@@ -2,7 +2,6 @@ package logging
 
 import (
 	"fmt"
-	"learncodexx/point_of_sale/user_service/constants"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,21 +13,16 @@ type BasicPrint struct {
 	mu          sync.Mutex
 }
 
-// NewBasicPrint returns a simple stdout logger for non-HTTP contexts.
 func NewBasicPrint() *BasicPrint {
-	return &BasicPrint{
-		fixedLength: 6,
-	}
+	return &BasicPrint{fixedLength: 6}
 }
 
-// Info prints a plain info line with tag and optional formatting args.
 func (l *BasicPrint) Info(tag, format string, a ...any) {
-	l.printLog(constants.LevelInfo, tag, format, nil, a...)
+	l.printLog(LevelInfo, tag, format, nil, a...)
 }
 
-// Error prints an error line, appending the error value and details.
 func (l *BasicPrint) Error(tag, format string, err error, a ...any) {
-	l.printLog(constants.LevelError, tag, format, err, a...)
+	l.printLog(LevelError, tag, format, err, a...)
 }
 
 func (l *BasicPrint) printLog(level, tag, format string, err error, a ...any) {
@@ -52,16 +46,10 @@ func (l *BasicPrint) printLog(level, tag, format string, err error, a ...any) {
 	finalMessage := message + typeInfo
 
 	levelDisplay := level
-	if level == constants.LevelError {
-		levelDisplay = "\033[31m" + level + "\033[0m" // Red if ERROR
+	if level == LevelError {
+		levelDisplay = "\033[31m" + level + "\033[0m"
 	}
 
 	length := strconv.Itoa(l.fixedLength)
-
-	fmt.Printf("[%s] [%-5s] [%-"+length+"s] %s\n",
-		timestamp,
-		levelDisplay,
-		tag,
-		finalMessage,
-	)
+	fmt.Printf("[%s] [%-5s] [%-"+length+"s] %s\n", timestamp, levelDisplay, tag, finalMessage)
 }

@@ -1,35 +1,56 @@
-# Logging package
+# logging
 
-One import for all logging helpers used by this service.
+Reusable Go logging package extracted from your `user_service`.
 
-## Install / import
-```go
-import "learncodexx/point_of_sale/user_service/pkg/logging"
+## Module
+
+Current module path:
+
+`github.com/learncodexx/logging`
+
+If your GitHub repo uses a different path, update `go.mod`.
+
+## Install
+
+```bash
+go get github.com/learncodexx/logging
 ```
 
-## Quick start
-```go
-log := logging.NewAPIPrint("user-service")
-ctx := logging.SetServiceName(context.Background(), "user-service")
+## Basic usage
 
-if err := doWork(); err != nil {
-    return logging.Trace(err) // adds [file:line] stack hints
+```go
+import "github.com/learncodexx/logging"
+
+basic := logging.NewBasicPrint()
+basic.Info("START", "service up")
+```
+
+## API usage (Fiber)
+
+```go
+import "github.com/learncodexx/logging"
+
+api := logging.NewAPIPrint("UserService")
+logging.SetFiberErrorHook(middleware.AddErrorToRequest)
+
+ctx, cancel := logging.WithDefaultTimeout(c, "UserService")
+defer cancel()
+
+if err := svc.SignIn(ctx, req); err != nil {
+	return logging.Trace(err)
 }
 
-log.Info(ctx, "processed %d users", 5)
+api.Info(ctx, "signin success")
 ```
 
-## API surface
-- `Trace(err error) error` — wrap errors with caller file:line, skipping duplicates.
-- `SetError(msg string) error` — create a fresh error with caller file:line.
-- `APIPrint` — request-aware logger; groups errors with Fiber requests when `SetFiberErrorHook` is set.
-- `BasicPrint` — lightweight stdout logger for init/background code.
-- `CheckType(args ...any) string` — appends `[val]` hints to log lines.
-- `ErrorPattern(err) string` / `TranslateError(raw string)` — convert DB/infra errors to user-friendly text.
-- Context helpers: `WithTimeout`, `WithDefaultTimeout`, `BackgroundWithDefaultTimeout(Basic)`, `SetServiceName`.
-- `SetFiberErrorHook(fn)` — connect Fiber middleware to group error logs per request.
+## Main functions
 
-## Patterns
-- Call `logging.Trace(err)` inline at the return site (no defers) for accurate stack lines.
-- Use `SetServiceName` or the `With*Timeout` helpers so APIPrint tags logs with the current service.
-- For new errors, prefer `SetError` over `fmt.Errorf` to keep format consistent.
+- `Trace(err error) error`
+- `SetError(message string) error`
+- `ErrorPattern(err error) string`
+- `TranslateError(raw string) string`
+- `NewBasicPrint() *BasicPrint`
+- `NewAPIPrint(service string) *APIPrint`
+- `SetServiceName(ctx, service)`
+- `WithTimeout(...)`, `WithDefaultTimeout(...)`
+- `SetFiberErrorHook(fn)`

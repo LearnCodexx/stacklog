@@ -1,4 +1,4 @@
-package stacklog
+package logging
 
 const (
 	LevelInfo  = "INFO"
@@ -6,6 +6,5 @@ const (
 
 	TagAPI = "API"
 
-	// Context key for overriding service/tag name when printing.
-	KeyAPIPrint = "stacklog_service"
+	KeyAPIPrint = "serviceName"
 )
