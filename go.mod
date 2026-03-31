@@ -1,4 +1,4 @@
-module github.com/nathan_syr/stacklog
+module github.com/learncodexx/stacklog
 
 go 1.24.0
 
