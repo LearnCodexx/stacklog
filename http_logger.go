@@ -14,6 +14,8 @@ var (
 	requestMutex = sync.RWMutex{}
 )
 
+// RequestLogEntry holds information about an HTTP request and its associated
+// error logs for grouped logging output.
 type RequestLogEntry struct {
 	Timestamp    string
 	Method       string
@@ -25,7 +27,27 @@ type RequestLogEntry struct {
 	HasCompleted bool
 }
 
-// HTTPLogger groups API and HTTP logs under one request context.
+// HTTPLogger returns a Fiber middleware that groups API error logs with HTTP request logs.
+// This middleware captures request information, collects any API errors that occur during
+// request processing, and outputs them together in a visually grouped format.
+//
+// The middleware automatically:
+//   - Assigns unique request IDs for tracking
+//   - Captures request details (method, path, IP, timing)
+//   - Collects API error logs that occur during request processing
+//   - Groups and displays all logs together when the request completes
+//
+// Usage:
+//
+//	app.Use(logging.HTTP())  // or logging.HTTPLogger() for direct access
+//
+// Example output:
+//
+//	▌ APPLICATION LOG
+//	▌ [2026-03-31 14:30:25] [ERROR] [API - UserService] Failed to create user
+//	  ↳ [ user_handler.go:45 ]
+//	  ↳ [ user_service.go:67 ] -> ERROR: validation failed
+//	▌ [2026-03-31 14:30:25] POST 400 42.3ms from 127.0.0.1 -> /users
 func HTTPLogger() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		requestID := fmt.Sprintf("%d-%s", time.Now().UnixNano(), c.IP())
@@ -67,6 +89,16 @@ func HTTPLogger() fiber.Handler {
 	}
 }
 
+// AddErrorToRequest adds an error message to the current HTTP request's log collection.
+// This function is used internally by the API logging system to group API errors
+// with their corresponding HTTP request logs.
+//
+// The error message will be displayed along with the HTTP request information
+// when the request completes, providing a grouped view of all errors that
+// occurred during request processing.
+//
+// Note: This function is primarily used internally by the logging system.
+// Application code should use logging.APIError() which automatically calls this function.
 func AddErrorToRequest(c *fiber.Ctx, errorMsg string) {
 	if requestID, ok := c.Locals("requestID").(string); ok {
 		requestMutex.Lock()
@@ -77,6 +109,11 @@ func AddErrorToRequest(c *fiber.Ctx, errorMsg string) {
 	}
 }
 
+// AddErrorToRequestFromContext adds an error message to the HTTP request log collection
+// using a context that contains a Fiber context. This enables error grouping even when
+// the Fiber context is not directly available.
+//
+// Note: This function is primarily used internally by the API logging system.
 func AddErrorToRequestFromContext(ctx context.Context, errorMsg string) {
 	if fiberCtx, ok := ctx.Value("fiber").(*fiber.Ctx); ok {
 		AddErrorToRequest(fiberCtx, errorMsg)

@@ -12,11 +12,27 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// APIPrint handles context-aware logging for API operations with automatic
+// HTTP request grouping and error stack trace generation.
+//
+// This logger is used internally by the global logging functions API() and APIError().
+// For most use cases, prefer using the global functions directly rather than
+// creating APIPrint instances manually.
 type APIPrint struct {
 	defaultService string
 	fixedLength    int
 }
 
+// NewAPIPrint creates a new APIPrint instance with the specified default service name.
+// The service name is used in log messages for service identification.
+//
+// Note: This function is primarily used internally by the global logging system.
+// For application code, use logging.Init() and the global logging functions instead.
+//
+// Example (internal usage):
+//
+//	apiLogger := NewAPIPrint("UserService")
+//	apiLogger.Info(ctx, "Processing user request")
 func NewAPIPrint(defaultService string) *APIPrint {
 	return &APIPrint{
 		defaultService: defaultService,
@@ -24,6 +40,15 @@ func NewAPIPrint(defaultService string) *APIPrint {
 	}
 }
 
+// Info logs an informational message with context awareness and automatic file/line tracking.
+// Messages logged through this function will automatically group with HTTP request logs
+// when used within a Fiber request context.
+//
+// Note: For application code, use the global logging.API() function instead of calling this directly.
+//
+// Example (internal usage):
+//
+//	apiLogger.Info(ctx, "User %s logged in successfully", userEmail)
 func (fl *APIPrint) Info(ctx context.Context, format string, a ...any) {
 	_, file, line, _ := runtime.Caller(2)
 	path := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
@@ -35,6 +60,19 @@ func (fl *APIPrint) Info(ctx context.Context, format string, a ...any) {
 	fl.printFromContext(ctx, LevelInfo, TagAPI, finalMessage)
 }
 
+// Error logs an error message with context awareness, automatic stack trace generation,
+// and HTTP request grouping. Error messages will automatically include file/line information
+// and will group with HTTP request logs when used within a Fiber request context.
+//
+// The function handles error stack trace parsing and formatting, ensuring that
+// multi-level error paths are properly displayed with visual indicators.
+//
+// Note: For application code, use the global logging.APIError() function instead of calling this directly.
+//
+// Example (internal usage):
+//
+//	apiLogger.Error(ctx, "Failed to create user", err)
+//	apiLogger.Error(ctx, "Validation failed for field %s", err, fieldName)
 func (fl *APIPrint) Error(ctx context.Context, format string, err error, a ...any) {
 	_, file, line, _ := runtime.Caller(2)
 	handlerPath := fmt.Sprintf("[ %s:%d ]", filepath.Base(file), line)
@@ -139,8 +177,20 @@ func (fl *APIPrint) getServiceName(ctx context.Context) string {
 	return fl.defaultService
 }
 
+// AddErrorToRequestFromMiddleware holds the function used to add API errors
+// to HTTP request logs for grouped output. This variable is set automatically
+// during logging system initialization.
 var AddErrorToRequestFromMiddleware func(*fiber.Ctx, string)
 
+// SetFiberErrorHook configures the function used to integrate API error logging
+// with HTTP request logging. This enables automatic grouping of API errors
+// with their corresponding HTTP request logs.
+//
+// This function is called automatically during logging.Init() to set up
+// the integration between APIPrint and HTTPLogger.
+//
+// Note: This function is used internally by the logging system during initialization.
+// Application code doesn't need to call this directly.
 func SetFiberErrorHook(fn func(*fiber.Ctx, string)) {
 	AddErrorToRequestFromMiddleware = fn
 }
